@@ -80,56 +80,55 @@ class ArduinoMicCompressor:
             return False
     
     def read_arduino_samples(self):
-        """Read samples from Arduino in background thread"""
         print("Starting Arduino reader thread...")
-        buffer = []
-        sample_count = 0
-        last_report = 0
-        
+        buf = bytearray()
+        import time
+        sample_count, last_report = 0, time.time()
+    
         while self.is_running:
             try:
-                if self.ser.in_waiting >= 2:
-                    # Read 2 bytes (one sample)
-                    low_byte = ord(self.ser.read(1))
-                    high_byte = ord(self.ser.read(1))
-                    
-                    # Reconstruct 10-bit value
-                    value = (high_byte << 8) | low_byte
-                    
-                    # Convert from 0-1023 to -1.0 to 1.0
+                b = self.ser.read(256)  # read a chunk
+                if not b:
+                    continue
+                buf.extend(b)
+    
+                # consume in 2-byte steps
+                while len(buf) >= 2:
+                    value = int.from_bytes(buf[:2], 'little', signed=False)
+                    del buf[:2]
+    
                     normalized = (value / 512.0) - 1.0
-                    
-                    buffer.append(normalized)
+                    # build audio chunks
+                    self._append_to_queue(normalized)
+    
                     sample_count += 1
-                    
-                    # Debug: Print sample rate every second
-                    import time
-                    current_time = time.time()
-                    if current_time - last_report >= 1.0:
-                        print(f"  Samples/sec: {sample_count}, Queue size: {self.audio_buffer.qsize()}, Last value: {value}")
+                    now = time.time()
+                    if now - last_report >= 1:
+                        print(f"  Samples/sec: {sample_count}, Queue: {self.audio_buffer.qsize()}, Last: {value}")
                         sample_count = 0
-                        last_report = current_time
-                    
-                    # When we have a full chunk, add to queue
-                    if len(buffer) >= self.CHUNK:
-                        chunk = np.array(buffer[:self.CHUNK], dtype=np.float32)
-                        buffer = buffer[self.CHUNK:]
-                        
-                        try:
-                            self.audio_buffer.put_nowait(chunk)
-                        except queue.Full:
-                            # Drop old data if buffer is full
-                            try:
-                                self.audio_buffer.get_nowait()
-                                self.audio_buffer.put_nowait(chunk)
-                            except:
-                                pass
-                                
+                        last_report = now
             except Exception as e:
                 print(f"Error reading from Arduino: {e}")
                 break
-        
         print("Arduino reader thread stopped")
+
+def _append_to_queue(self, sample):
+    # accumulate into CHUNK-sized blocks
+    if not hasattr(self, "_accum"):
+        self._accum = []
+    self._accum.append(sample)
+    if len(self._accum) >= self.CHUNK:
+        chunk = np.asarray(self._accum[:self.CHUNK], dtype=np.float32)
+        self._accum = self._accum[self.CHUNK:]
+        try:
+            self.audio_buffer.put_nowait(chunk)
+        except queue.Full:
+            try:
+                self.audio_buffer.get_nowait()
+                self.audio_buffer.put_nowait(chunk)
+            except:
+                pass
+
     
     def bandpass_filter_chunk(self, data):
         """Apply bandpass filter to a chunk"""
