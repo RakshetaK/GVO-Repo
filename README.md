@@ -30,7 +30,19 @@ You control this via a **simple app** with big buttons: **Calm • Dark • Quie
 - Parents, caregivers, and venue staff who need a **fast, reliable** calming tool
 
 ## Images of Our Product
-<img src="https://raw.githubusercontent.com/RakshetaK/GVO-Repo/refs/heads/main/vyz-login.png" width="400">
+<table>
+  <tr>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-login.png" width="300"></td>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-audio.png" width="300"></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-mindful.png" width="300"></td>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-visual.png" width="300"></td>
+  </tr>
+</table>
 
 ## A 30-Second Walkthrough
 
