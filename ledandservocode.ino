@@ -4,6 +4,8 @@
 const int servoPin = 9;          // Servo signal pin
 const int inputPin = 2;          // Digital input pin (button or signal)
 Servo myServo;
+int servoPos = 0;                // Current servo position
+int targetPos = 0;               // Target servo position
 
 // RGB LED control pins and variables
 #define PIN_RED   3    // PWM pin for Red
@@ -22,7 +24,7 @@ void setup() {
   // Initialize servo
   pinMode(inputPin, INPUT_PULLUP);   // Input pin with pull-up resistor
   myServo.attach(servoPin);          // Attach servo to pin 9
-  myServo.write(0);                  // Start at 0 degrees
+  myServo.write(servoPos);           // Start at the initial position
 
   // Initialize RGB LED pins
   pinMode(PIN_RED, OUTPUT);
@@ -30,7 +32,7 @@ void setup() {
   pinMode(PIN_BLUE, OUTPUT);
 
   // Set RGB LED to off initially
-  setRGB(50, 50, 50);  
+  setRGB(50, 50, 50);
 
   // Start Serial communication
   Serial.begin(9600);
@@ -54,16 +56,25 @@ void setRGB(int r, int g, int b) {
 
 // Main loop
 void loop() {
-  // Read input state for servo
-  int state = digitalRead(inputPin);  // Read digital input
+  // Read input state to determine the servo's target position
+  int state = digitalRead(inputPin);
 
-  if (state == LOW) {                 // LOW = active (button pressed or signal)
-    myServo.write(90);                // Move to 90 degrees
-    Serial.println("Input LOW → Servo 90°");
-  } else {                            // HIGH = inactive
-    myServo.write(0);                 // Move back to 0 degrees
-    Serial.println("Input HIGH → Servo 0°");
+  if (state == LOW) { // LOW = active (button pressed or signal)
+    targetPos = 0;   // Set target to 0 degrees
+  } else {            // HIGH = inactive
+    targetPos = 90;    // Set target back to 90 degrees
   }
+
+  // --- Smooth Servo Movement ---
+  // If the current position is not the target position, move one step closer.
+  if (servoPos < targetPos) {
+    servoPos++;
+    myServo.write(servoPos);
+  } else if (servoPos > targetPos) {
+    servoPos--;
+    myServo.write(servoPos);
+  }
+  // If servoPos == targetPos, do nothing.
 
   // Serial command parsing for RGB LED
   while (Serial.available() > 0) {
@@ -78,7 +89,10 @@ void loop() {
     }
   }
 
-  delay(50);  // Small delay to avoid jitter
+  // Delay between each 1-degree step.
+  // Increase this value to make the servo turn slower.
+  // Decrease it to make it turn faster.
+  delay(15);
 }
 
 // Parse the RGB format "R.G.B"
