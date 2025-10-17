@@ -215,7 +215,7 @@ Respond ONLY with valid JSON in this exact format:
         )
         
         # 4. Parse GPT response
-        gpt_response = response['choices'][0]['message']['content']strip()
+        gpt_response = response['choices'][0]['message']['content'].strip()
         print(f"GPT Response: {gpt_response}")
         
         # Extract JSON (in case GPT wraps it in markdown)
