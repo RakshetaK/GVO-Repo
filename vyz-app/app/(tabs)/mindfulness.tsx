@@ -35,7 +35,7 @@ const exercisesInScrollView = [
 export default function MindfulnessScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("mindfulness");
-  const dotPosition = useRef(new Animated.Value(48)).current; // Start at mindfulness position
+  const dotPosition = useRef(new Animated.Value(37)).current; // Start at mindfulness position
 
   const animateAndNavigate = (tab: string, toPosition: number, route: string) => {
     setActiveTab(tab);
@@ -243,16 +243,16 @@ const styles = StyleSheet.create({
   // NavBar
   navBar: {
     position: "absolute",
-    bottom: 50,
+    bottom: 0,
     left: 0,
     right: 0,
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 15,
+    paddingVertical: 45,
     backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
+    borderTopWidth: 0,
+    borderTopColor: "#fff",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,

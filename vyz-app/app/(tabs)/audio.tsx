@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
-import Icon from "../../components/Icon";
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   Image,
-  FlatList,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
+  Animated,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { Ionicons, Feather } from '@expo/vector-icons';
+import { useRouter } from "expo-router";
+import Icon from "../../components/Icon";
+
 const icons = {
   mindfulness: require("../../assets/mindfulness-icon.png"),
   audio: require("../../assets/audio-icon.png"),
   visual: require("../../assets/visual-icon.png"),
-  settings: require("../../assets/vyz-logo.png"),
-  calm: require("../../assets/calm-icon.png"),
+  settings: require("../../assets/setting-icon.png"),
   avatar: require("../../assets/profile.png"),
 };
-import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 
 const soothingSounds = [
   { id: '1', title: 'White Noise' },
@@ -33,48 +33,71 @@ const soothingSounds = [
   { id: '9', title: 'Soft Piano' },
 ];
 
-export default function App() {
+export default function AudioScreen() {
+  const router = useRouter();
   const [noiseSuppression, setNoiseSuppression] = useState(0.5);
+  const [activeTab, setActiveTab] = useState("audio");
+  const [playingStates, setPlayingStates] = useState<{[key: string]: boolean}>({});
+  const dotPosition = useRef(new Animated.Value(132)).current;
 
-  const renderSoundItem = ({ item }) => (
-    <View style={styles.soundItem}>
-      <TouchableOpacity style={styles.soundButton}>
-        <Ionicons name="play-circle" size={24} color="white" />
-        <Text style={styles.soundText}>{item.title}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity>
-        <Feather name="volume-2" size={20} color="white" />
-      </TouchableOpacity>
-    </View>
-  );
+  const animateAndNavigate = (tab: string, toPosition: number, route: string) => {
+    setActiveTab(tab);
+    
+    // Animate the dot
+    Animated.timing(dotPosition, {
+      toValue: toPosition,
+      duration: 300,
+      useNativeDriver: false,
+    }).start(() => {
+      // Navigate after animation completes
+      router.push(route);
+    });
+  };
+
+  const togglePlayPause = (soundId: string) => {
+    setPlayingStates(prev => ({
+      ...prev,
+      [soundId]: !prev[soundId]
+    }));
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Image source={icons.avatar} style={styles.avatar} />
-        <Text style={styles.greeting}>Welcome, Krish</Text>
-      </View>
+    <View style={styles.container}>
+      <View style={styles.background} />
+      <View style={styles.headerShadow} />
+      <View style={styles.header} />
 
-        {/* Audio Section */}
+      {/* Avatar and greeting - absolute positioned like mindfulness */}
+      <Image source={icons.avatar} style={styles.avatarAbs} />
+      <Text style={styles.greetingAbs}>Welcome, Krish</Text>
+
+      {/* Scrollable content */}
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.title}>Audio</Text>
+
+        {/* Noise Suppression Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Audio</Text>
-
           <Text style={styles.subTitle}>Noise Suppression</Text>
           <Text style={styles.description}>
             Adjust the amount which your auditory surroundings will be muffled
           </Text>
+          
           <Slider
-            style={{ width: '100%', height: 40 }}
+            style={styles.slider}
             minimumValue={0}
             maximumValue={1}
             value={noiseSuppression}
             onValueChange={value => setNoiseSuppression(value)}
-            minimumTrackTintColor="#1E90FF"
+            minimumTrackTintColor="#0F62FE"
             maximumTrackTintColor="#ccc"
-            thumbTintColor="#1E90FF"
+            thumbTintColor="#0F62FE"
           />
+          
+          <Text style={styles.sliderValue}>{Math.round(noiseSuppression * 100)}%</Text>
         </View>
 
         {/* Soothing Sounds */}
@@ -86,8 +109,15 @@ export default function App() {
 
           {soothingSounds.map((item) => (
             <View key={item.id} style={styles.soundItem}>
-              <TouchableOpacity style={styles.soundButton}>
-                <Ionicons name="play-circle" size={24} color="white" />
+              <TouchableOpacity 
+                style={styles.soundButton}
+                onPress={() => togglePlayPause(item.id)}
+              >
+                <Ionicons 
+                  name={playingStates[item.id] ? "pause-circle" : "play-circle"} 
+                  size={24} 
+                  color="white" 
+                />
                 <Text style={styles.soundText}>{item.title}</Text>
               </TouchableOpacity>
               <TouchableOpacity>
@@ -98,79 +128,164 @@ export default function App() {
         </View>
       </ScrollView>
 
-<View style={styles.navBar}>
-  <TouchableOpacity style={styles.navButton} onPress={() => console.log('Emotions')}>
-    <MaterialIcons name="emoji-emotions" size={28} color="black" />
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.navButton} onPress={() => console.log('Audio')}>
-    <Ionicons name="volume-high" size={28} color="black" />
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.navButton} onPress={() => console.log('Headphones')}>
-    <Feather name="headphones" size={28} color="black" />
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.navButton} onPress={() => console.log('Settings')}>
-    <Ionicons name="settings-outline" size={28} color="black" />
-  </TouchableOpacity>
-</View>
+      {/* Bottom Navigation Bar - matching mindfulness */}
+      <View style={styles.navBar}>
+        <Animated.View style={[styles.activeCircle, { left: dotPosition }]} />
 
-    </SafeAreaView>
+        <TouchableOpacity
+          style={[styles.navButton, { left: 48 }]}
+          onPress={() => animateAndNavigate("mindfulness", 37, "/(tabs)/mindfulness")}
+        >
+          <Icon source={icons.mindfulness} size={32} tint={activeTab === "mindfulness" ? "#fff" : "#000"} />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.navButton, { left: 143 }]}
+          onPress={() => {
+            // Already on audio, do nothing
+          }}
+        >
+          <Icon source={icons.audio} size={32} tint={activeTab === "audio" ? "#fff" : "#000"} />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.navButton, { left: 227 }]}
+          onPress={() => animateAndNavigate("visual", 216, "/(tabs)/visual")}
+        >
+          <Icon source={icons.visual} size={32} tint={activeTab === "visual" ? "#fff" : "#000"} />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.navButton, { left: 311 }]}
+          onPress={() => animateAndNavigate("settings", 300, "/(tabs)/settings")}
+        >
+          <Icon source={icons.settings} size={32} tint={activeTab === "settings" ? "#fff" : "#000"} />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#fff',
+    width: 402,
+    height: 874,
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "white",
   },
-  scrollContent: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 100, // Leave space for navbar
+  background: {
+    width: 402,
+    height: 874,
+    position: "absolute",
+    left: 0,
+    top: 0,
+    backgroundColor: "white",
+  },
+  headerShadow: {
+    width: 425.38,
+    height: 184.5,
+    position: "absolute",
+    left: -21,
+    top: -22,
+    backgroundColor: "white",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    borderRadius: 20,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: '#1E90FF',
-    padding: 15,
-    borderRadius: 10,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
+    width: 415,
+    height: 180,
+    position: "absolute",
+    left: -13,
+    top: -20,
+    backgroundColor: "#0F62FE",
     borderRadius: 20,
-    marginRight: 15,
   },
-  welcomeText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+  avatarAbs: {
+    position: "absolute",
+    left: 21,
+    top: 92,
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 20,
+  },
+  greetingAbs: {
+    position: "absolute",
+    left: 80,
+    top: 104,
+    color: "white",
+    fontSize: 20,
+    fontFamily: "BaiJamjuree-Regular",
+    zIndex: 20,
+  },
+  scrollContainer: {
+    position: "absolute",
+    top: 160,
+    left: 0,
+    right: 0,
+    bottom: 80,
+  },
+  scrollContent: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 21,
+  },
+  title: {
+    marginBottom: 8,
+    color: "#161515",
+    fontSize: 24,
+    fontFamily: "Gravity-Bold",
   },
   section: {
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    marginTop: 12,
   },
   subTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
+    fontSize: 20,
+    fontFamily: "Gravity-Regular",
+    marginBottom: 8,
+    color: "#161515",
   },
   description: {
-    color: '#555',
-    fontSize: 13,
-    marginVertical: 5,
+    color: '#161515',
+    fontSize: 11,
+    fontFamily: "Gravity-Regular",
+    fontWeight: '350',
+    marginBottom: 15,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#161515',
+    textAlign: 'center',
+    marginTop: 5,
   },
   soundItem: {
-    backgroundColor: '#1E90FF',
+    backgroundColor: '#0F62FE',
     padding: 15,
     marginVertical: 5,
     borderRadius: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   soundButton: {
     flexDirection: 'row',
@@ -182,11 +297,46 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   navBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#ccc',
-    backgroundColor: '#fff',
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: 45,
+    backgroundColor: "#fff",
+    borderTopWidth: 0,
+    borderTopColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 10,
+    zIndex: 20,
+  },
+  navButton: {
+    position: "absolute",
+    padding: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    width: 32,
+    height: 32,
+    top: 28,
+    zIndex: 25,
+  },
+  activeCircle: {
+    width: 54,
+    height: 54,
+    position: "absolute",
+    top: 18,
+    backgroundColor: "#0F62FE",
+    borderRadius: 27,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 6,
+    zIndex: 20,
   },
 });
