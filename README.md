@@ -32,15 +32,22 @@ You control this via a **simple app** with big buttons: **Calm • Dark • Quie
 ## Images of Our Product
 <table>
   <tr>
-    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-login.png" width="300"></td>
-    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-audio.png" width="300"></td>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-login.png" width="300"></td>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-audio.png" width="300"></td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-mindful.png" width="300"></td>
-    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/vyz-visual.png" width="300"></td>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-mindful.png" width="300"></td>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-visual.png" width="300"></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-compute-box.JPG" width="300"></td>
+    <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-physical-wearable.JPG" width="300"></td>
   </tr>
 </table>
 
