@@ -77,21 +77,26 @@ export default function MindfulnessScreen() {
       <View style={styles.bottomNav}>
         <View style={styles.activeCircle} />
 
-        {/* ORDER: mindfulness, audio, visual, settings */}
-        <Pressable style={[styles.navIcon, { left: 59 }]}>
-          <Icon source={icons.mindfulness} size={32} />
+        {/* Mindfulness Icon - LARGER SIZE */}
+        <Pressable
+          style={[styles.navIcon, { left: 48, width: 54, height: 54 }]}
+        >
+          <Icon source={icons.mindfulness} size={48} />
         </Pressable>
 
+        {/* Audio Icon */}
         <Pressable style={[styles.navIcon, { left: 143 }]}>
           <Icon source={icons.audio} size={32} />
         </Pressable>
 
+        {/* Visual Icon */}
         <Pressable style={[styles.navIcon, { left: 227 }]}>
           <Icon source={icons.visual} size={32} />
         </Pressable>
 
+        {/* Settings Icon - LARGER SIZE */}
         <Pressable style={[styles.navIcon, { left: 311 }]}>
-          <Icon source={icons.settings} size={32} />
+          <Icon source={icons.settings} size={48} />
         </Pressable>
       </View>
     </View>
