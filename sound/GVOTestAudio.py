@@ -1,41 +1,62 @@
-
 #!/usr/bin/env python3
 import numpy as np
 from scipy import signal
 import sounddevice as sd
 import sys
 import time
-import glob
-import serial
-from serial.tools import list_ports
+from dotenv import load_dotenv, set_key
+import requests
+import os
 
-# -------- UART auto-detect (GPIO UART or USB) --------
-def open_serial():
-    # Preferred order: Pi UART symlinks → hardware nodes → USB serials
-    candidates = [
-        '/dev/serial0', '/dev/ttyAMA0', '/dev/ttyS0',
-        '/dev/ttyACM0', '/dev/ttyUSB0'
-    ]
-    detected = [p.device for p in list_ports.comports()]
-    for c in candidates + detected:
-        try:
-            if c and (glob.glob(c) or c in detected):
-                s = serial.Serial(c, baudrate=9600, timeout=1)
-                print(f"[UART] Connected on {c}")
-                return s
-        except Exception:
-            pass
-    print("[UART] No serial port available. Running without LEDs.")
-    return None
+# Load settings
+SETTINGS_ENV = "settings.env"
+STORE_ENV = "store.env"
 
-ser = open_serial()
-if ser:
-    print(f"[UART] Using port: {ser.port} @ {ser.baudrate} "
-          f"(bytesize={ser.bytesize}, parity={ser.parity}, stopbits={ser.stopbits})")
-    time.sleep(2.0)          # Arduino auto-reset guard (if applicable)
-    ser.reset_input_buffer()
-else:
-    print("[UART] No serial port — LED control disabled")
+# Flask server URL
+FLASK_URL = "http://localhost:5000/recommend"
+
+# Threshold monitoring
+API_COOLDOWN = 5.0  # minimum seconds between API calls
+
+# Settings reload interval
+SETTINGS_RELOAD_INTERVAL = 2.0  # reload settings every 2 seconds
+
+def update_store_amplitude(normalized_amplitude):
+    """Update AMPLITUDE in store.env"""
+    try:
+        set_key(STORE_ENV, "AMPLITUDE", f"{normalized_amplitude:.6f}")
+    except Exception as e:
+        print(f"✗ Error updating store: {e}")
+
+def trigger_recommend_api():
+    """Call Flask /recommend endpoint"""
+    try:
+        response = requests.post(FLASK_URL, timeout=3)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("success"):
+                rec = result.get("recommendation", {})
+                print(f"✓ API Response - Audio: {rec.get('audio')}, Light: {rec.get('light')}")
+        else:
+            print(f"✗ API error: {response.status_code}")
+    except requests.exceptions.ConnectionError:
+        print(f"✗ API call failed: Flask server not reachable at {FLASK_URL}")
+    except Exception as e:
+        print(f"✗ API call failed: {e}")
+
+def load_settings():
+    """Load settings from settings.env and return as dict"""
+    load_dotenv(SETTINGS_ENV, override=True)
+    return {
+        'threshold_db': int(os.getenv("THRESHOLD_DB", -20)),
+        'ratio': int(os.getenv("RATIO", 4)),
+        'target_peak': float(os.getenv("TARGET_PEAK", 0.7)),
+        'lowcut': int(os.getenv("LOWCUT", 200)),
+        'highcut': int(os.getenv("HIGHCUT", 6000)),
+        'white_noise_level': float(os.getenv("WHITE_NOISE_LEVEL", 0.08)),
+        'amplitude_threshold': float(os.getenv("AMPLITUDE_THRESHOLD", 0.5)),
+        'background_audio': os.getenv("BACKGROUND_AUDIO", "white_noise_calm")
+    }
 
 # ======================================================
 #                   LiveMicCompressor
@@ -44,85 +65,67 @@ class LiveMicCompressor:
     def __init__(self):
         # Audio stream settings
         self.CHUNK = 2048
-        self.SAMPLE_RATE = 22050  # lower is lighter on Pi CPU
+        self.SAMPLE_RATE = 22050
 
-        # ===== Compressor & filter =====
-        self.threshold_db    = -20
-        self.ratio           = 4
-        self.makeup_gain_db  = 0
-        self.target_peak     = 0.7
-        self.lowcut          = 200
-        self.highcut         = 6000
-        self.white_noise_level = 0.08
+        # Load initial settings
+        settings = load_settings()
+        self._apply_settings(settings)
 
-        # ===== LED / Serial signaling =====
-        self.loud_hysteresis_db = 3.0     # dB hysteresis around threshold
-        self.led_min_interval   = 0.05    # seconds; rate limit UART updates
-        self.level_alpha        = 0.2     # EMA smoothing for LED level
-        self._last_led_send = 0.0
-        self._loud_state    = False       # True = loud, False = tame
-        self._thr_up_lin    = None
-        self._thr_down_lin  = None
-        self._level_ema     = 0.0
+        # ===== Threshold tracking =====
+        self.last_api_call = 0.0
+        self.was_above_threshold = False
+        self.amplitude_ema = 0.0
+
+        # ===== Settings reload tracking =====
+        self.last_settings_reload = 0.0
 
         # Internal filter state
         self.filter_b = None
         self.filter_a = None
         self.zi       = None
 
-    # ---------- Helpers ----------
-    def _recalc_thresholds(self):
-        thr_lin = 10 ** (self.threshold_db / 20.0)
-        self._thr_up_lin   = thr_lin
-        self._thr_down_lin = thr_lin * (10 ** (-self.loud_hysteresis_db / 20.0))
+    def _apply_settings(self, settings):
+        """Apply settings dict to compressor parameters"""
+        old_lowcut = getattr(self, 'lowcut', None)
+        old_highcut = getattr(self, 'highcut', None)
+        
+        self.threshold_db = settings['threshold_db']
+        self.ratio = settings['ratio']
+        self.target_peak = settings['target_peak']
+        self.lowcut = settings['lowcut']
+        self.highcut = settings['highcut']
+        self.white_noise_level = settings['white_noise_level']
+        self.amplitude_threshold = settings['amplitude_threshold']
+        self.background_audio = settings['background_audio']
+        self.makeup_gain_db = 0
+        
+        # If filter frequencies changed, need to recalculate filter
+        if old_lowcut != self.lowcut or old_highcut != self.highcut:
+            if self.filter_b is not None:  # only if filter already initialized
+                self._recalc_filter()
 
-    def _decide_loud(self, peak_abs):
-        if self._loud_state:
-            # currently loud → require dropping below lower threshold to release
-            return peak_abs > self._thr_down_lin
-        else:
-            # currently tame → require exceeding upper threshold to trigger
-            return peak_abs > self._thr_up_lin
-
-    def _level_to_rgb(self, lvl):
-        """
-        lvl in [0,1]: 0 = blue (calm), 0.5 = purple, 1 = red (loud).
-        Slight green in middle for visibility.
-        """
-        lvl = max(0.0, min(1.0, lvl))
-        r = int(255 *  lvl)
-        g = int(80  * (1.0 - abs(2*lvl - 1.0)))
-        b = int(255 * (1.0 -  lvl))
-        return r, g, b
-
-    def _rgb255_to_pct(self, r, g, b):
-    # Convert 0..255 → 0..100 (rounded, clamped)
-        to_pct = lambda x: max(0, min(100, int(round((x / 255.0) * 100))))
-        return to_pct(r), to_pct(g), to_pct(b)
-
-    def _send_rgb_if_due(self, r255, g255, b255):
+    def _reload_settings_if_due(self):
+        """Reload settings from .env if enough time has passed"""
         now = time.time()
-        if not ser or (now - self._last_led_send < self.led_min_interval):
-            return
-        try:
-            r, g, b = self._rgb255_to_pct(r255, g255, b255)
-            # EXACT frame: !R.G.B#
-            frame = f"!{r}.{g}.{b}#".encode("ascii")
-            ser.write(frame)                 # no newline
-            ser.flush()                      # push it out
-        except Exception:
-            pass
-        self._last_led_send = now
+        if now - self.last_settings_reload > SETTINGS_RELOAD_INTERVAL:
+            settings = load_settings()
+            old_audio = self.background_audio
+            self._apply_settings(settings)
+            if old_audio != self.background_audio:
+                print(f"⟳ Audio pattern changed: {old_audio} → {self.background_audio}")
+            self.last_settings_reload = now
 
-
-    # ---------- DSP pipeline ----------
-    def setup_filter(self):
+    def _recalc_filter(self):
+        """Recalculate filter coefficients when frequencies change"""
         nyquist = self.SAMPLE_RATE / 2
         low  = self.lowcut  / nyquist
         high = self.highcut / nyquist
         self.filter_b, self.filter_a = signal.butter(4, [low, high], btype='band')
+        # Reset filter state to avoid transients
         self.zi = signal.lfilter_zi(self.filter_b, self.filter_a) * 0
-        self._recalc_thresholds()
+
+    def setup_filter(self):
+        self._recalc_filter()
 
     def bandpass_filter_chunk(self, data):
         filtered, self.zi = signal.lfilter(self.filter_b, self.filter_a, data, zi=self.zi)
@@ -131,7 +134,6 @@ class LiveMicCompressor:
     def compress_chunk(self, data):
         threshold = 10 ** (self.threshold_db / 20)
         compressed = np.copy(data)
-        # per-sample loop is fine at this rate
         for i in range(len(data)):
             amplitude = abs(data[i])
             if amplitude > threshold:
@@ -149,44 +151,89 @@ class LiveMicCompressor:
             data = data * (self.target_peak / current_peak)
         return data
 
-    def add_white_noise_chunk(self, data):
+    def generate_noise_chunk(self, length):
+        """Generate different types of noise based on background_audio setting"""
+        if "white" in self.background_audio:
+            # White noise - equal energy across all frequencies
+            return np.random.normal(0, self.white_noise_level, length)
+        
+        elif "pink" in self.background_audio:
+            # Pink noise - 1/f noise (more bass)
+            white = np.random.randn(length)
+            # Simple pink noise approximation using running sum
+            pink = np.cumsum(white)
+            pink = pink - np.mean(pink)
+            pink = pink / (np.max(np.abs(pink)) + 1e-9) * self.white_noise_level
+            return pink
+        
+        elif "brown" in self.background_audio:
+            # Brown noise - 1/f² noise (even more bass)
+            white = np.random.randn(length)
+            # Brownian noise using double integration
+            brown = np.cumsum(np.cumsum(white))
+            brown = brown - np.mean(brown)
+            brown = brown / (np.max(np.abs(brown)) + 1e-9) * self.white_noise_level
+            return brown
+        
+        else:
+            # Default to white noise
+            return np.random.normal(0, self.white_noise_level, length)
+
+    def add_background_audio_chunk(self, data):
+        """Add background audio/noise to chunk based on current setting"""
         if self.white_noise_level <= 0:
             return data
-        white_noise = np.random.normal(0, self.white_noise_level, len(data))
-        mixed = data + white_noise
+        
+        noise = self.generate_noise_chunk(len(data))
+        mixed = data + noise
+        
+        # Prevent clipping
         max_val = float(np.max(np.abs(mixed)))
         if max_val > 1.0:
             mixed = mixed / max_val
+        
         return mixed
 
     def process_chunk(self, chunk):
-        # Ensure mono
+        # Check if we should reload settings (time-based, lightweight check)
+        self._reload_settings_if_due()
+        
         if chunk.ndim > 1:
             chunk = chunk[:, 0]
 
         # 1) Filter
         filtered = self.bandpass_filter_chunk(chunk)
 
-        # 2) LED logic tap (use filtered peak)
-        peak = float(np.max(np.abs(filtered)))  # linear
-        # Normalize peak versus compressor threshold for 0..1 display
-        norm = min(1.0, peak / max(self._thr_up_lin or 1e-6, 1e-6))
-        self._level_ema = (1 - self.level_alpha) * self._level_ema + self.level_alpha * norm
+        # 2) Get peak for amplitude monitoring
+        peak = float(np.max(np.abs(filtered)))
 
-        # Hysteretic loud/tame decision
-        new_loud = self._decide_loud(peak)
-        self._loud_state = new_loud
-
-        # Build RGB + send (throttled)
-        r, g, b = self._level_to_rgb(self._level_ema)
-        self._send_rgb_if_due(r, g, b)
+        # === AMPLITUDE THRESHOLD MONITORING ===
+        normalized_amplitude = peak / max(self.target_peak, 1e-6)
+        normalized_amplitude = min(1.0, normalized_amplitude)
+        
+        self.amplitude_ema = 0.8 * self.amplitude_ema + 0.2 * normalized_amplitude
+        
+        # Update store.env continuously
+        update_store_amplitude(self.amplitude_ema)
+        
+        # Check threshold crossing
+        now = time.time()
+        is_above_threshold = self.amplitude_ema > self.amplitude_threshold
+        crossed_threshold = is_above_threshold != self.was_above_threshold
+        
+        if crossed_threshold and (now - self.last_api_call) > API_COOLDOWN:
+            print(f"\n🔔 Amplitude threshold crossed! {self.amplitude_ema:.3f} vs {self.amplitude_threshold:.3f}")
+            trigger_recommend_api()
+            self.last_api_call = now
+        
+        self.was_above_threshold = is_above_threshold
 
         # 3) Compress
         compressed = self.compress_chunk(filtered)
         # 4) Normalize
         normalized = self.normalize_chunk(compressed)
-        # 5) Add white noise
-        final = self.add_white_noise_chunk(normalized)
+        # 5) Add background audio (type determined by background_audio setting)
+        final = self.add_background_audio_chunk(normalized)
         return final
 
     def audio_callback(self, indata, outdata, frames, time_info, status):
@@ -200,50 +247,48 @@ class LiveMicCompressor:
             outdata.fill(0)
 
     def start_live_processing(self, input_device=None, output_device=None):
-        # Optional: set devices
         if input_device is not None or output_device is not None:
             sd.default.device = (input_device, output_device)
 
-        # Resolve actual devices
         input_dev_info = sd.query_devices(sd.default.device[0])
         output_dev_info = sd.query_devices(sd.default.device[1])
 
-        # Adopt the device native rate (avoids resampler stress)
         device_sample_rate = int(input_dev_info['default_samplerate'])
         if device_sample_rate != self.SAMPLE_RATE:
-            print(f"\n⚠ Adjusting sample rate from {self.SAMPLE_RATE} to {device_sample_rate} Hz (device native rate)")
+            print(f"\n⚠ Adjusting sample rate from {self.SAMPLE_RATE} to {device_sample_rate} Hz")
             self.SAMPLE_RATE = device_sample_rate
 
         print("\n" + "="*60)
-        print("LIVE MICROPHONE COMPRESSOR")
+        print("LIVE MICROPHONE COMPRESSOR (HOT-RELOAD ENABLED)")
         print("="*60)
         print(f"Sample Rate: {self.SAMPLE_RATE} Hz")
         print(f"Chunk Size: {self.CHUNK} samples")
-        print(f"Latency: ~{(self.CHUNK / self.SAMPLE_RATE) * 1000:.1f} ms")
+        print(f"Settings reload: every {SETTINGS_RELOAD_INTERVAL}s")
 
         print("\n" + "="*60)
-        print("CURRENT SETTINGS:")
+        print("INITIAL SETTINGS (from settings.env):")
         print("="*60)
         print(f"  Compression:")
         print(f"    - Threshold: {self.threshold_db} dB")
         print(f"    - Ratio: {self.ratio}:1")
-        print(f"    - Makeup Gain: {self.makeup_gain_db} dB")
         print(f"  Frequency Filter:")
         print(f"    - Low Cut: {self.lowcut} Hz")
         print(f"    - High Cut: {self.highcut} Hz")
         print(f"  Output:")
         print(f"    - Max Volume: {self.target_peak}")
-        print(f"    - White Noise: {self.white_noise_level * 100:.1f}%")
+        print(f"    - Background Audio: {self.background_audio}")
+        print(f"    - Noise Level: {self.white_noise_level * 100:.1f}%")
+        print(f"  Monitoring:")
+        print(f"    - Amplitude Threshold: {self.amplitude_threshold}")
         print("="*60)
 
-        # Setup filter after finalizing SR
         self.setup_filter()
 
         print(f"\nUsing devices:")
         print(f"  Input:  {input_dev_info['name']}")
         print(f"  Output: {output_dev_info['name']}")
-        print(f"UART: {'ENABLED' if ser else 'DISABLED'} (C R G B\\n @ 9600)\n")
-        print("🎤 Starting LIVE audio processing...  (Ctrl+C to stop)\n")
+        print("\n🎤 Starting LIVE audio processing...  (Ctrl+C to stop)")
+        print("⟳ Settings will auto-reload from settings.env\n")
 
         try:
             with sd.Stream(
@@ -260,12 +305,7 @@ class LiveMicCompressor:
             print("\n\n✓ Stopped by user")
         except Exception as e:
             print(f"\n\nError: {e}")
-            print("\nTroubleshooting:")
-            print("  1. Run with --devices to see available devices")
-            print("  2. Make sure no other app is using your microphone")
-            print("  3. Check your system audio permissions")
 
-# -------- Utilities --------
 def list_audio_devices():
     print("\n" + "="*60)
     print("AVAILABLE AUDIO DEVICES")
@@ -282,22 +322,11 @@ def list_audio_devices():
         print(f"    Channels: In={device['max_input_channels']}, Out={device['max_output_channels']}")
         print(f"    Sample Rate: {device['default_samplerate']} Hz")
     print("\n" + "="*60)
-    print("CURRENT DEFAULT DEVICES:")
-    print("="*60)
-    try:
-        print(f"  Input:  [{sd.default.device[0]}] {sd.query_devices(sd.default.device[0])['name']}")
-        print(f"  Output: [{sd.default.device[1]}] {sd.query_devices(sd.default.device[1])['name']}")
-    except Exception:
-        print("  (Defaults not set)")
-    print("\nTo use specific devices, run with: --input <num> --output <num>")
 
-# -------- Main --------
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Live Microphone Audio Compressor (with RGB UART)')
+    parser = argparse.ArgumentParser(description='Live Microphone Audio Compressor (Hot-Reload)')
     parser.add_argument('--devices', action='store_true', help='List available audio devices')
-    parser.add_argument('--input', type=int, help='Input device number (see --devices)', default=None)
-    parser.add_argument('--output', type=int, help='Output device number (see --devices)', default=None)
     args = parser.parse_args()
 
     if args.devices:
@@ -305,24 +334,5 @@ if __name__ == "__main__":
         sys.exit(0)
 
     compressor = LiveMicCompressor()
-
-    # === Tunables ===
-    compressor.threshold_db = -20
-    compressor.ratio = 4
-    compressor.makeup_gain_db = 0
-
-    compressor.lowcut = 200
-    compressor.highcut = 6000
-
-    compressor.target_peak = 0.7
-    compressor.white_noise_level = 0.08
-
-    # LED behavior
-    compressor.loud_hysteresis_db = 3.0
-    compressor.led_min_interval   = 0.05
-    compressor.level_alpha        = 0.2
-
-    compressor.start_live_processing(
-        input_device=args.input,
-        output_device=args.output
-    )
+    # Always use input=1, output=0 as requested
+    compressor.start_live_processing(input_device=1, output_device=0)
