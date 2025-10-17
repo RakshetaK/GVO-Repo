@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Image } from "react-native";
+import { View, Text, StyleSheet, Pressable, Image, TouchableOpacity } from "react-native";
 import Icon from "../../components/Icon";
 
 // Assets
@@ -73,31 +73,35 @@ export default function MindfulnessScreen() {
         </Text>
       ))}
 
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <View style={styles.activeCircle} />
-
-        {/* Mindfulness Icon - LARGER SIZE */}
-        <Pressable
-          style={[styles.navIcon, { left: 48, width: 54, height: 54 }]}
+      {/* Bottom Navigation Bar */}
+      <View style={styles.navBar}>
+        <TouchableOpacity 
+          style={[styles.navButton, styles.navButtonActive]} 
+          onPress={() => console.log('Mindfulness')}
         >
-          <Icon source={icons.mindfulness} size={48} />
-        </Pressable>
+          <Icon source={icons.mindfulness} size={32} />
+        </TouchableOpacity>
 
-        {/* Audio Icon */}
-        <Pressable style={[styles.navIcon, { left: 143 }]}>
+        <TouchableOpacity 
+          style={styles.navButton} 
+          onPress={() => console.log('Audio')}
+        >
           <Icon source={icons.audio} size={32} />
-        </Pressable>
+        </TouchableOpacity>
 
-        {/* Visual Icon */}
-        <Pressable style={[styles.navIcon, { left: 227 }]}>
+        <TouchableOpacity 
+          style={styles.navButton} 
+          onPress={() => console.log('Visual')}
+        >
           <Icon source={icons.visual} size={32} />
-        </Pressable>
+        </TouchableOpacity>
 
-        {/* Settings Icon - LARGER SIZE */}
-        <Pressable style={[styles.navIcon, { left: 311 }]}>
-          <Icon source={icons.settings} size={48} />
-        </Pressable>
+        <TouchableOpacity 
+          style={styles.navButton} 
+          onPress={() => console.log('Settings')}
+        >
+          <Icon source={icons.settings} size={32} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -196,34 +200,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Gravity-Regular",
   },
-  bottomNav: {
-    width: 402,
-    height: 95,
+  // New NavBar styles from audio.tsx
+  navBar: {
     position: "absolute",
+    bottom: 0,
     left: 0,
-    top: 779,
-    backgroundColor: "white",
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: 15,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#ccc",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 10,
   },
-  activeCircle: {
-    width: 54,
-    height: 54,
-    position: "absolute",
-    left: 48,
-    top: 18,
-    backgroundColor: "#D9D9D9",
-    borderRadius: 27,
-  },
-  navIcon: {
-    width: 32,
-    height: 32,
-    position: "absolute",
-    top: 28,
+  navButton: {
+    padding: 8,
     justifyContent: "center",
     alignItems: "center",
+  },
+  navButtonActive: {
+    backgroundColor: "#D9D9D9",
+    borderRadius: 27,
+    width: 54,
+    height: 54,
   },
 });
