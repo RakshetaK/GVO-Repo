@@ -69,7 +69,7 @@ class LiveMicCompressor:
 
         # Load initial settings
         settings = load_settings()
-        self._apply_settings(settings)
+        
 
         # ===== Threshold tracking =====
         self.last_api_call = 0.0
@@ -83,6 +83,7 @@ class LiveMicCompressor:
         self.filter_b = None
         self.filter_a = None
         self.zi       = None
+        self._apply_settings(settings)
 
     def _apply_settings(self, settings):
         """Apply settings dict to compressor parameters"""
@@ -336,3 +337,4 @@ if __name__ == "__main__":
     compressor = LiveMicCompressor()
     # Always use input=1, output=0 as requested
     compressor.start_live_processing(input_device=1, output_device=0)
+
