@@ -1,4 +1,6 @@
-# GVO-Repo
+# VYZ
+
+Imagine you're at the 2028 LA Olympics Game! You're watching your favorite sport, but you feel uncomfortable. There's strobing lights and loud sounds all around you, and you're starting to feel overwhelmed. However, you don't want to miss enjoying your favorite sport. Introducing, Vyz, a baseball hat that helps reduce sensory overload by using calming leds, putting on sunglasses, and filtering out loud noises and uncomfortable frequencies.
 
 ## 🔌 Important Pin-Out and Connections Information
 
