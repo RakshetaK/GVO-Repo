@@ -50,6 +50,48 @@ You control this via a **simple app** with big buttons: **Calm • Dark • Quie
     <td><img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-physical-wearable.JPG" width="300"></td>
   </tr>
 </table>
+## Vyz Mobile App (React Native + TypeScript, Expo)
+
+A lightweight companion app that lets users quickly interact with **Mindfulness**, **Audio**, and **Visual** settings or functionality. Built with **React Native + TypeScript** and runs in **Expo Go** for instant demo-ability.
+---
+
+### Key Screens
+
+#### 1) Welcome / Login
+  
+![Welcome](<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-login.png" width="300">)
+
+---
+
+#### 2) Mindfulness (Home tab)
+- **Purpose:** fast access to guided breathing patterns for calming down in overstimulating spaces.
+- **UI:** grid of “cards” (e.g., *Box*, *Balloon*, *Wave*, *4-7-8*), each launching a short on-screen guide or animation.
+- **Behavior:** a tap starts a simple timer + animation + haptic tick.
+- **Why:** creates a predictable rhythm, like a visual metronome for breathing.
+
+![Mindfulness]<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-mindful.png" width="300">)
+
+---
+
+#### 3) Audio
+- **Purpose:** reduce perceived harshness and offer soothing sound options.
+- **UI:**
+  - **Noise Suppression slider** (0–100%) to simulate muffling/attenuation.
+  - **Soothing Sounds list** (White/Brown noise, Ocean Waves, Gentle Rain, etc.) with play/stop buttons.
+- **Behavior:** single active sound at a time; respects system audio focus; persists last selection.
+
+![Audio](<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-audio.png" width="300">)
+
+---
+
+#### 4) Visual
+- **Purpose:** dim bright surroundings and stabilize visual input.
+- **UI:** circular **Brightness** control (coarse steps) with a vertical level indicator (fine feedback).
+- **Behavior:** updates a brightness percentage and persists locally; intended to map to wearable’s visor/LED state in production.
+
+![Visual](<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-visual.png" width="300">)
+
+---
 
 ## A 30-Second Walkthrough
 
