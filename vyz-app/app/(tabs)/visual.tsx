@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   PanResponder,
 } from "react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Icon from "../../components/Icon";
 import Svg, { Circle } from "react-native-svg";
 
@@ -47,6 +48,40 @@ export default function VisualScreen() {
 
   // ---- brightness value (0..100)
   const [brightness, setBrightness] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load saved brightness value on mount
+  useEffect(() => {
+    loadBrightness();
+  }, []);
+
+  // Save brightness value whenever it changes
+  useEffect(() => {
+    if (!isLoading) {
+      saveBrightness();
+    }
+  }, [brightness, isLoading]);
+
+  const loadBrightness = async () => {
+    try {
+      const savedValue = await AsyncStorage.getItem("@brightness_value");
+      if (savedValue !== null) {
+        setBrightness(parseFloat(savedValue));
+      }
+    } catch (error) {
+      console.error("Error loading brightness:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveBrightness = async () => {
+    try {
+      await AsyncStorage.setItem("@brightness_value", brightness.toString());
+    } catch (error) {
+      console.error("Error saving brightness:", error);
+    }
+  };
 
   const NUM_SEGS = 8;
   const SEG_H = 30; // bar height
@@ -70,7 +105,27 @@ export default function VisualScreen() {
 
   function updateFromLocal(localY: number) {
     const y = clamp(localY, 0, SLIDER_HEIGHT);
-    const pct = 100 - Math.round((y / SLIDER_HEIGHT) * 100); // bottom=0, top=100
+
+    // Original linear calculation (0 at bottom, 100 at top)
+    // const pct = 100 - Math.round((y / SLIDER_HEIGHT) * 100);
+
+    // OPTION 1: Start at 10% minimum, max at 100%
+    // const pct = 100 - Math.round((y / SLIDER_HEIGHT) * 90 - 10);
+
+    // OPTION 2: Exponential curve (more sensitive at top)
+    // const normalized = 1 - (y / SLIDER_HEIGHT);
+    // const pct = Math.round(Math.pow(normalized, 2) * 100);
+
+    // OPTION 3: Logarithmic curve (more sensitive at bottom)
+    // const normalized = 1 - (y / SLIDER_HEIGHT);
+    // const pct = Math.round(Math.sqrt(normalized) * 100);
+
+    // OPTION 4: Custom range (e.g., 15% to 85%)
+    const minPercent = 15;
+    const maxPercent = 100;
+    const range = maxPercent - minPercent;
+    const pct = maxPercent - Math.round((y / SLIDER_HEIGHT) * range);
+
     setBrightness(pct);
   }
 
@@ -86,8 +141,8 @@ export default function VisualScreen() {
   const circumference = 2 * Math.PI * radius;
 
   // We draw a 270° arc (75% of full circle)
-  const ARC_PCT = 0.55; // 270 / 360
-  const START_AT_DEG = 5; // top-left
+  const ARC_PCT = 0.75; // 270 / 360
+  const START_AT_DEG = 15; // top-left
   const START_OFFSET = (START_AT_DEG / 360) * circumference;
 
   // Blue length grows 0..270° with brightness
@@ -154,6 +209,9 @@ export default function VisualScreen() {
 
       {/* brightness pictogram */}
       <Image source={icons.brightness} style={styles.brightnessIcon} />
+
+      {/* Brightness percentage display */}
+      <Text style={styles.brightnessPercent}>{Math.round(brightness)}%</Text>
 
       {/* RIGHT VERTICAL SLIDER with gaps between segments */}
       <View style={styles.sliderHitbox} {...pan.panHandlers}>
@@ -360,11 +418,21 @@ const styles = StyleSheet.create({
   brightnessIcon: {
     position: "absolute",
     left: 21,
-    top: 477,
+    top: 435, // Moved up from 477
     width: 81,
     height: 81,
     resizeMode: "contain",
     tintColor: "#0F62FE",
+  },
+
+  // Brightness percentage text
+  brightnessPercent: {
+    position: "absolute",
+    left: 39,
+    top: 533, // Moved up from 570
+    fontSize: 24,
+    fontFamily: "BaiJamjuree-Regular", // Changed from Gravity-Bold
+    color: "#0F62FE",
   },
 
   // Vertical slider area with gaps

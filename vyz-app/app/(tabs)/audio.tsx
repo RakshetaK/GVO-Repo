@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,6 +11,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from "../../components/Icon";
 
 const icons = {
@@ -38,7 +39,63 @@ export default function AudioScreen() {
   const [noiseSuppression, setNoiseSuppression] = useState(0.5);
   const [activeTab, setActiveTab] = useState("audio");
   const [playingStates, setPlayingStates] = useState<{[key: string]: boolean}>({});
+  const [isLoading, setIsLoading] = useState(true);
   const dotPosition = useRef(new Animated.Value(132)).current;
+
+  // Load saved values on mount
+  useEffect(() => {
+    loadSavedValues();
+  }, []);
+
+  // Save noise suppression value whenever it changes
+  useEffect(() => {
+    if (!isLoading) {
+      saveNoiseSuppressionValue();
+    }
+  }, [noiseSuppression, isLoading]);
+
+  // Save playing states whenever they change
+  useEffect(() => {
+    if (!isLoading) {
+      savePlayingStates();
+    }
+  }, [playingStates, isLoading]);
+
+  const loadSavedValues = async () => {
+    try {
+      // Load noise suppression value
+      const savedNoiseValue = await AsyncStorage.getItem('@noise_suppression_value');
+      if (savedNoiseValue !== null) {
+        setNoiseSuppression(parseFloat(savedNoiseValue));
+      }
+
+      // Load playing states
+      const savedPlayingStates = await AsyncStorage.getItem('@playing_states');
+      if (savedPlayingStates !== null) {
+        setPlayingStates(JSON.parse(savedPlayingStates));
+      }
+    } catch (error) {
+      console.error('Error loading saved values:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveNoiseSuppressionValue = async () => {
+    try {
+      await AsyncStorage.setItem('@noise_suppression_value', noiseSuppression.toString());
+    } catch (error) {
+      console.error('Error saving noise suppression:', error);
+    }
+  };
+
+  const savePlayingStates = async () => {
+    try {
+      await AsyncStorage.setItem('@playing_states', JSON.stringify(playingStates));
+    } catch (error) {
+      console.error('Error saving playing states:', error);
+    }
+  };
 
   const animateAndNavigate = (tab: string, toPosition: number, route: string) => {
     setActiveTab(tab);
