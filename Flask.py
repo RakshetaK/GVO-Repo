@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 from dotenv import load_dotenv, set_key
 import json
-from openai import OpenAI
+import openai
 import serial
 from serial.tools import list_ports
 import time
@@ -93,7 +93,7 @@ LIGHT_PATTERN_RGB = {
 }
 
 # OpenAI setup
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = ""
 
 def send_rgb_to_arduino(r, g, b):
     """Send RGB values to Arduino in the format: !R.G.B#"""
@@ -204,7 +204,7 @@ Respond ONLY with valid JSON in this exact format:
 
         # 3. Call GPT
         print("Calling OpenAI API...")
-        response = client.chat.completions.create(
+        response = openai.chatCompletions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a calming environment assistant. Respond only with valid JSON."},
@@ -215,7 +215,7 @@ Respond ONLY with valid JSON in this exact format:
         )
         
         # 4. Parse GPT response
-        gpt_response = response.choices[0].message.content.strip()
+        gpt_response = response['choices'][0]['message']['content']strip()
         print(f"GPT Response: {gpt_response}")
         
         # Extract JSON (in case GPT wraps it in markdown)
