@@ -8,6 +8,10 @@ settings = {
     "threshold_db": -20,
     "ratio": 4,
     "makeup_gain_db": 0,
+    "target_peak" = 0.7,
+    "lowcut" = 200,
+    "highcut" = 6000,
+    "white_noise_level" = 0.08
 }
 
 @app.route("/")
