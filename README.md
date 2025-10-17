@@ -59,7 +59,7 @@ A lightweight companion app that lets users quickly interact with **Mindfulness*
 
 #### 1) Welcome / Login
   
-![Welcome](<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-login.png" width="300">)
+<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-login.png" width="300">
 
 ---
 
@@ -69,7 +69,7 @@ A lightweight companion app that lets users quickly interact with **Mindfulness*
 - **Behavior:** a tap starts a simple timer + animation + haptic tick.
 - **Why:** creates a predictable rhythm, like a visual metronome for breathing.
 
-![Mindfulness]<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-mindful.png" width="300">)
+<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-mindful.png" width="300">
 
 ---
 
@@ -80,7 +80,7 @@ A lightweight companion app that lets users quickly interact with **Mindfulness*
   - **Soothing Sounds list** (White/Brown noise, Ocean Waves, Gentle Rain, etc.) with play/stop buttons.
 - **Behavior:** single active sound at a time; respects system audio focus; persists last selection.
 
-![Audio](<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-audio.png" width="300">)
+<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-audio.png" width="300">
 
 ---
 
@@ -89,7 +89,7 @@ A lightweight companion app that lets users quickly interact with **Mindfulness*
 - **UI:** circular **Brightness** control (coarse steps) with a vertical level indicator (fine feedback).
 - **Behavior:** updates a brightness percentage and persists locally; intended to map to wearable’s visor/LED state in production.
 
-![Visual](<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-visual.png" width="300">)
+<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-visual.png" width="300">
 
 ---
 
