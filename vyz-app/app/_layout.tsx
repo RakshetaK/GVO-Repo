@@ -1,4 +1,4 @@
-import { Slot } from "expo-router";
+import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -19,7 +19,7 @@ export default function RootLayout() {
     "Gravity-LightItalic": require("../assets/fonts/Gravity-LightItalic.otf"),
     "Gravity-UltraLightItalic": require("../assets/fonts/Gravity-UltraLightItalic.otf"),
 
-    // BaiJamjuree (TTF) — use .ttf, not .otf
+    // BaiJamjuree (TTF)
     "BaiJamjuree-Regular": require("../assets/fonts/BaiJamjuree-Regular.ttf"),
     "BaiJamjuree-Bold": require("../assets/fonts/BaiJamjuree-Bold.ttf"),
     "BaiJamjuree-SemiBold": require("../assets/fonts/BaiJamjuree-SemiBold.ttf"),
@@ -39,5 +39,14 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   if (!loaded) return null;
-  return <Slot />;
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+        animationDuration: 300,
+      }}
+    />
+  );
 }
