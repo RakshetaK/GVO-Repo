@@ -93,7 +93,8 @@ LIGHT_PATTERN_RGB = {
 }
 
 # OpenAI setup
-openai.api_key = ""
+api_=""
+openai.api_key = api_
 
 def send_rgb_to_arduino(r, g, b):
     """Send RGB values to Arduino in the format: !R.G.B#"""
