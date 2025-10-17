@@ -79,6 +79,7 @@ void loop() {
   // Serial command parsing for RGB LED
   while (Serial.available() > 0) {
     char c = Serial.read();
+    Serial.println(c);
     if (c == '!') {
       serialBuffer = "";          // Start of new message
     } else if (c == '#') {
@@ -122,4 +123,3 @@ void parseRGB(String msg) {
   Serial.print(g); Serial.print("% ");
   Serial.print(b); Serial.println("%");
 }
-
