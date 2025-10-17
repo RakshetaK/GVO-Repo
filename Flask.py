@@ -204,7 +204,7 @@ Respond ONLY with valid JSON in this exact format:
 
         # 3. Call GPT
         print("Calling OpenAI API...")
-        response = openai.chatCompletions.create(
+        response = openai.chatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a calming environment assistant. Respond only with valid JSON."},
