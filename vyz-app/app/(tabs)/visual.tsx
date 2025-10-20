@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Icon from "../../components/Icon";
 import Svg, { Circle } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons"; // ← added
 
 const icons = {
   mindfulness: require("../../assets/mindfulness-icon.png"),
@@ -106,20 +107,6 @@ export default function VisualScreen() {
   function updateFromLocal(localY: number) {
     const y = clamp(localY, 0, SLIDER_HEIGHT);
 
-    // Original linear calculation (0 at bottom, 100 at top)
-    // const pct = 100 - Math.round((y / SLIDER_HEIGHT) * 100);
-
-    // OPTION 1: Start at 10% minimum, max at 100%
-    // const pct = 100 - Math.round((y / SLIDER_HEIGHT) * 90 - 10);
-
-    // OPTION 2: Exponential curve (more sensitive at top)
-    // const normalized = 1 - (y / SLIDER_HEIGHT);
-    // const pct = Math.round(Math.pow(normalized, 2) * 100);
-
-    // OPTION 3: Logarithmic curve (more sensitive at bottom)
-    // const normalized = 1 - (y / SLIDER_HEIGHT);
-    // const pct = Math.round(Math.sqrt(normalized) * 100);
-
     // OPTION 4: Custom range (e.g., 15% to 85%)
     const minPercent = 15;
     const maxPercent = 100;
@@ -161,6 +148,14 @@ export default function VisualScreen() {
       {/* Avatar + greeting (fixed positions) */}
       <Image source={icons.avatar} style={styles.avatarAbs} />
       <Text style={styles.greetingAbs}>Welcome, Krish</Text>
+
+      {/* ← back chevron to login */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.push("/")}
+      >
+        <Ionicons name="chevron-back" size={28} color="white" />
+      </TouchableOpacity>
 
       {/* Titles */}
       <Text style={styles.title}>Visual</Text>
@@ -362,6 +357,18 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
 
+  // ← added
+  backButton: {
+    position: "absolute",
+    left: 350,
+    top: 95,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
+  },
+
   title: {
     position: "absolute",
     left: 21,
@@ -418,7 +425,7 @@ const styles = StyleSheet.create({
   brightnessIcon: {
     position: "absolute",
     left: 21,
-    top: 435, // Moved up from 477
+    top: 435,
     width: 81,
     height: 81,
     resizeMode: "contain",
@@ -429,9 +436,9 @@ const styles = StyleSheet.create({
   brightnessPercent: {
     position: "absolute",
     left: 39,
-    top: 533, // Moved up from 570
+    top: 533,
     fontSize: 24,
-    fontFamily: "BaiJamjuree-Regular", // Changed from Gravity-Bold
+    fontFamily: "BaiJamjuree-Regular",
     color: "#0F62FE",
   },
 
@@ -441,7 +448,7 @@ const styles = StyleSheet.create({
     left: 270,
     top: 384,
     width: 55,
-    height: 268, // increased to account for gaps
+    height: 268,
     zIndex: 30,
   },
 

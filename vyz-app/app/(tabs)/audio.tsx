@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
-} from 'react-native';
-import Slider from '@react-native-community/slider';
-import { Ionicons, Feather } from '@expo/vector-icons';
+} from "react-native";
+import Slider from "@react-native-community/slider";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Icon from "../../components/Icon";
 
 const icons = {
@@ -23,22 +23,24 @@ const icons = {
 };
 
 const soothingSounds = [
-  { id: '1', title: 'White Noise' },
-  { id: '2', title: 'Ocean Waves' },
-  { id: '3', title: 'Gentle Rain' },
-  { id: '4', title: 'Brown Noise' },
-  { id: '5', title: 'Sunday Sunshine' },
-  { id: '6', title: 'Calming Crickets' },
-  { id: '7', title: 'Forest Wind' },
-  { id: '8', title: 'Fireplace Crackle' },
-  { id: '9', title: 'Soft Piano' },
+  { id: "1", title: "White Noise" },
+  { id: "2", title: "Ocean Waves" },
+  { id: "3", title: "Gentle Rain" },
+  { id: "4", title: "Brown Noise" },
+  { id: "5", title: "Sunday Sunshine" },
+  { id: "6", title: "Calming Crickets" },
+  { id: "7", title: "Forest Wind" },
+  { id: "8", title: "Fireplace Crackle" },
+  { id: "9", title: "Soft Piano" },
 ];
 
 export default function AudioScreen() {
   const router = useRouter();
   const [noiseSuppression, setNoiseSuppression] = useState(0.5);
   const [activeTab, setActiveTab] = useState("audio");
-  const [playingStates, setPlayingStates] = useState<{[key: string]: boolean}>({});
+  const [playingStates, setPlayingStates] = useState<{
+    [key: string]: boolean;
+  }>({});
   const [isLoading, setIsLoading] = useState(true);
   const dotPosition = useRef(new Animated.Value(132)).current;
 
@@ -64,18 +66,20 @@ export default function AudioScreen() {
   const loadSavedValues = async () => {
     try {
       // Load noise suppression value
-      const savedNoiseValue = await AsyncStorage.getItem('@noise_suppression_value');
+      const savedNoiseValue = await AsyncStorage.getItem(
+        "@noise_suppression_value"
+      );
       if (savedNoiseValue !== null) {
         setNoiseSuppression(parseFloat(savedNoiseValue));
       }
 
       // Load playing states
-      const savedPlayingStates = await AsyncStorage.getItem('@playing_states');
+      const savedPlayingStates = await AsyncStorage.getItem("@playing_states");
       if (savedPlayingStates !== null) {
         setPlayingStates(JSON.parse(savedPlayingStates));
       }
     } catch (error) {
-      console.error('Error loading saved values:', error);
+      console.error("Error loading saved values:", error);
     } finally {
       setIsLoading(false);
     }
@@ -83,23 +87,33 @@ export default function AudioScreen() {
 
   const saveNoiseSuppressionValue = async () => {
     try {
-      await AsyncStorage.setItem('@noise_suppression_value', noiseSuppression.toString());
+      await AsyncStorage.setItem(
+        "@noise_suppression_value",
+        noiseSuppression.toString()
+      );
     } catch (error) {
-      console.error('Error saving noise suppression:', error);
+      console.error("Error saving noise suppression:", error);
     }
   };
 
   const savePlayingStates = async () => {
     try {
-      await AsyncStorage.setItem('@playing_states', JSON.stringify(playingStates));
+      await AsyncStorage.setItem(
+        "@playing_states",
+        JSON.stringify(playingStates)
+      );
     } catch (error) {
-      console.error('Error saving playing states:', error);
+      console.error("Error saving playing states:", error);
     }
   };
 
-  const animateAndNavigate = (tab: string, toPosition: number, route: string) => {
+  const animateAndNavigate = (
+    tab: string,
+    toPosition: number,
+    route: string
+  ) => {
     setActiveTab(tab);
-    
+
     // Animate the dot
     Animated.timing(dotPosition, {
       toValue: toPosition,
@@ -112,9 +126,9 @@ export default function AudioScreen() {
   };
 
   const togglePlayPause = (soundId: string) => {
-    setPlayingStates(prev => ({
+    setPlayingStates((prev) => ({
       ...prev,
-      [soundId]: !prev[soundId]
+      [soundId]: !prev[soundId],
     }));
   };
 
@@ -128,8 +142,16 @@ export default function AudioScreen() {
       <Image source={icons.avatar} style={styles.avatarAbs} />
       <Text style={styles.greetingAbs}>Welcome, Krish</Text>
 
+      {/* Back button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.push("/")}
+      >
+        <Ionicons name="chevron-back" size={28} color="white" />
+      </TouchableOpacity>
+
       {/* Scrollable content */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -142,38 +164,41 @@ export default function AudioScreen() {
           <Text style={styles.description}>
             Adjust the amount which your auditory surroundings will be muffled
           </Text>
-          
+
           <Slider
             style={styles.slider}
             minimumValue={0}
             maximumValue={1}
             value={noiseSuppression}
-            onValueChange={value => setNoiseSuppression(value)}
+            onValueChange={(value) => setNoiseSuppression(value)}
             minimumTrackTintColor="#0F62FE"
             maximumTrackTintColor="#ccc"
             thumbTintColor="#0F62FE"
           />
-          
-          <Text style={styles.sliderValue}>{Math.round(noiseSuppression * 100)}%</Text>
+
+          <Text style={styles.sliderValue}>
+            {Math.round(noiseSuppression * 100)}%
+          </Text>
         </View>
 
         {/* Soothing Sounds */}
         <View style={styles.section}>
           <Text style={styles.subTitle}>Soothing Sounds</Text>
           <Text style={styles.description}>
-            Pick a soothing sound from a playlist of noise types, or listen to a snippet of audio by clicking the volume icon
+            Pick a soothing sound from a playlist of noise types, or listen to a
+            snippet of audio by clicking the volume icon
           </Text>
 
           {soothingSounds.map((item) => (
             <View key={item.id} style={styles.soundItem}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.soundButton}
                 onPress={() => togglePlayPause(item.id)}
               >
-                <Ionicons 
-                  name={playingStates[item.id] ? "pause-circle" : "play-circle"} 
-                  size={24} 
-                  color="white" 
+                <Ionicons
+                  name={playingStates[item.id] ? "pause-circle" : "play-circle"}
+                  size={24}
+                  color="white"
                 />
                 <Text style={styles.soundText}>{item.title}</Text>
               </TouchableOpacity>
@@ -191,32 +216,52 @@ export default function AudioScreen() {
 
         <TouchableOpacity
           style={[styles.navButton, { left: 48 }]}
-          onPress={() => animateAndNavigate("mindfulness", 37, "/(tabs)/mindfulness")}
+          onPress={() =>
+            animateAndNavigate("mindfulness", 37, "/(tabs)/mindfulness")
+          }
         >
-          <Icon source={icons.mindfulness} size={32} tint={activeTab === "mindfulness" ? "#fff" : "#000"} />
+          <Icon
+            source={icons.mindfulness}
+            size={32}
+            tint={activeTab === "mindfulness" ? "#fff" : "#000"}
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, { left: 143 }]}
           onPress={() => {
             // Already on audio, do nothing
           }}
         >
-          <Icon source={icons.audio} size={32} tint={activeTab === "audio" ? "#fff" : "#000"} />
+          <Icon
+            source={icons.audio}
+            size={32}
+            tint={activeTab === "audio" ? "#fff" : "#000"}
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, { left: 227 }]}
           onPress={() => animateAndNavigate("visual", 216, "/(tabs)/visual")}
         >
-          <Icon source={icons.visual} size={32} tint={activeTab === "visual" ? "#fff" : "#000"} />
+          <Icon
+            source={icons.visual}
+            size={32}
+            tint={activeTab === "visual" ? "#fff" : "#000"}
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, { left: 311 }]}
-          onPress={() => animateAndNavigate("settings", 300, "/(tabs)/settings")}
+          onPress={() =>
+            animateAndNavigate("settings", 300, "/(tabs)/settings")
+          }
         >
-          <Icon source={icons.settings} size={32} tint={activeTab === "settings" ? "#fff" : "#000"} />
+          <Icon
+            source={icons.settings}
+            size={32}
+            tint={activeTab === "settings" ? "#fff" : "#000"}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -285,6 +330,16 @@ const styles = StyleSheet.create({
     fontFamily: "BaiJamjuree-Regular",
     zIndex: 20,
   },
+  backButton: {
+    position: "absolute",
+    left: 350,
+    top: 95,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
+  },
   scrollContainer: {
     position: "absolute",
     top: 160,
@@ -313,31 +368,31 @@ const styles = StyleSheet.create({
     color: "#161515",
   },
   description: {
-    color: '#161515',
+    color: "#161515",
     fontSize: 11,
     fontFamily: "Gravity-Regular",
-    fontWeight: '350',
+    fontWeight: "350",
     marginBottom: 15,
   },
   slider: {
-    width: '100%',
+    width: "100%",
     height: 40,
   },
   sliderValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#161515',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "#161515",
+    textAlign: "center",
     marginTop: 5,
   },
   soundItem: {
-    backgroundColor: '#0F62FE',
+    backgroundColor: "#0F62FE",
     padding: 15,
     marginVertical: 5,
     borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -345,11 +400,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   soundButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   soundText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
     marginLeft: 10,
   },

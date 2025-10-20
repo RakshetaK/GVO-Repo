@@ -1,84 +1,83 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet, Image } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function WelcomeScreen() {
+const logo = require("../assets/vyz-logo.png");
+
+export default function Index() {
   const router = useRouter();
 
   return (
-    <LinearGradient colors={["#0066FF", "#0052CC"]} style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
-          <View style={styles.waveContainer}>
-            {/* Simple wave representation */}
-            <View style={styles.wave1} />
-            <View style={styles.wave2} />
-            <Text style={styles.title}>Welcome to Vyz</Text>
-          </View>
+    <View style={styles.container}>
+      {/* Logo Image */}
+      <Image source={logo} style={styles.logo} resizeMode="contain" />
 
-          <Pressable
-            style={styles.loginButton}
-            onPress={() => router.push("/(tabs)/mindfulness")}
-          >
-            <Text style={styles.loginText}>Log in</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+      {/* Welcome text */}
+      <View style={styles.titleRow}>
+        <Text style={styles.welcomeText}>Welcome to </Text>
+        <Text style={styles.brandText}>Vyz</Text>
+      </View>
+
+      {/* Login button */}
+      <Pressable
+        onPress={() => router.push("/(tabs)/mindfulness")}
+        style={({ pressed }) => [
+          styles.loginButton,
+          pressed && { opacity: 0.85 },
+        ]}
+      >
+        <Text style={styles.loginText}>Log in</Text>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
+    width: "100%",
+    height: "100%",
+    position: "relative",
+    backgroundColor: "#0F62FE",
+    overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
   },
-  waveContainer: {
+  logo: {
+    width: "130%",
+    height: 200,
+    position: "absolute",
+    top: "35%",
+  },
+  titleRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 100,
+    position: "absolute",
+    top: "60%",
   },
-  wave1: {
-    width: 200,
-    height: 100,
-    borderRadius: 100,
-    borderWidth: 3,
-    borderColor: "rgba(255, 255, 255, 0.5)",
-    marginBottom: -50,
-  },
-  wave2: {
-    width: 250,
-    height: 125,
-    borderRadius: 125,
-    borderWidth: 3,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    marginBottom: 30,
-  },
-  title: {
-    fontSize: 32,
+  welcomeText: {
     color: "white",
-    fontWeight: "500",
-    marginTop: 20,
+    fontSize: 32,
+    fontWeight: "300",
+  },
+  brandText: {
+    color: "white",
+    fontSize: 32,
+    fontStyle: "italic",
+    fontWeight: "400",
   },
   loginButton: {
+    width: 200,
+    height: 50,
+    position: "absolute",
+    top: "75%",
     borderWidth: 2,
     borderColor: "white",
     borderRadius: 8,
-    paddingHorizontal: 40,
-    paddingVertical: 12,
-    position: "absolute",
-    bottom: 100,
+    justifyContent: "center",
+    alignItems: "center",
   },
   loginText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 20,
+    fontWeight: "300",
   },
 });

@@ -1,7 +1,17 @@
-import { View, Text, StyleSheet, Pressable, Image, TouchableOpacity, ScrollView, Animated } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useState, useRef } from "react";
 import Icon from "../../components/Icon";
+import { Ionicons } from "@expo/vector-icons"; // ⟵ added
 
 // Assets
 const icons = {
@@ -37,9 +47,13 @@ export default function MindfulnessScreen() {
   const [activeTab, setActiveTab] = useState("mindfulness");
   const dotPosition = useRef(new Animated.Value(37)).current; // Start at mindfulness position
 
-  const animateAndNavigate = (tab: string, toPosition: number, route: string) => {
+  const animateAndNavigate = (
+    tab: string,
+    toPosition: number,
+    route: string
+  ) => {
     setActiveTab(tab);
-    
+
     // Animate the dot
     Animated.timing(dotPosition, {
       toValue: toPosition,
@@ -61,10 +75,19 @@ export default function MindfulnessScreen() {
 
       {/* Absolute-positioned avatar + greeting (screen coords) - STATIC */}
       <Image source={icons.avatar} style={styles.avatarAbs} />
+
+      {/* ⟵ back chevron right after avatar */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.push("/")}
+      >
+        <Ionicons name="chevron-back" size={28} color="white" />
+      </TouchableOpacity>
+
       <Text style={styles.greetingAbs}>Welcome, Krish</Text>
 
       {/* SCROLLABLE CONTENT AREA */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -79,14 +102,24 @@ export default function MindfulnessScreen() {
             <Icon
               source={icons.calm}
               size={94}
-              style={{ position: "absolute", left: (pos.width - 94) / 2, top: 22 }}
+              style={{
+                position: "absolute",
+                left: (pos.width - 94) / 2,
+                top: 22,
+              }}
             />
           </Pressable>
         ))}
 
         {/* Exercise Names */}
         {exercisesInScrollView.map((exercise) => (
-          <Text key={exercise.id} style={[styles.exerciseName, { left: exercise.left, top: exercise.top }]}>
+          <Text
+            key={exercise.id}
+            style={[
+              styles.exerciseName,
+              { left: exercise.left, top: exercise.top },
+            ]}
+          >
             {exercise.name}
           </Text>
         ))}
@@ -102,26 +135,32 @@ export default function MindfulnessScreen() {
             // Already on mindfulness, do nothing
           }}
         >
-          <Icon source={icons.mindfulness} size={32} tint={activeTab === "mindfulness" ? "#fff" : "#000"} />
+          <Icon
+            source={icons.mindfulness}
+            size={32}
+            tint={activeTab === "mindfulness" ? "#fff" : "#000"}
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, { left: 143 }]}
           onPress={() => animateAndNavigate("audio", 132, "/(tabs)/audio")}
         >
           <Icon source={icons.audio} size={32} />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, { left: 227 }]}
           onPress={() => animateAndNavigate("visual", 216, "/(tabs)/visual")}
         >
           <Icon source={icons.visual} size={32} />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, { left: 311 }]}
-          onPress={() => animateAndNavigate("settings", 300, "/(tabs)/settings")}
+          onPress={() =>
+            animateAndNavigate("settings", 300, "/(tabs)/settings")
+          }
         >
           <Icon source={icons.settings} size={32} />
         </TouchableOpacity>
@@ -183,6 +222,17 @@ const styles = StyleSheet.create({
     elevation: 3,
     zIndex: 20,
   },
+  // ⟵ added button style
+  backButton: {
+    position: "absolute",
+    left: 350,
+    top: 95,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
+  },
   greetingAbs: {
     position: "absolute",
     left: 80,
@@ -192,7 +242,7 @@ const styles = StyleSheet.create({
     fontFamily: "BaiJamjuree-Regular",
     zIndex: 20,
   },
-  
+
   // Scrollable content area - starts right after header
   scrollContainer: {
     position: "absolute",
@@ -206,7 +256,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     minHeight: 650,
   },
-  
+
   // Title and subtitle now inside ScrollView
   title: {
     paddingLeft: 21,
@@ -222,7 +272,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: "Gravity-Regular",
   },
-  
+
   card: {
     height: 174,
     position: "absolute",
