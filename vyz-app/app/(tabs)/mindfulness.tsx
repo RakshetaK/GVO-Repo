@@ -23,6 +23,8 @@ const icons = {
   avatar: require("../../assets/profile.png"),
 };
 
+type Tab = "mindfulness" | "audio" | "visual" | "settings";
+
 const cardPositions = [
   { left: 21, top: 110, width: 170 },
   { left: 212, top: 110, width: 169 },
@@ -47,21 +49,16 @@ export default function MindfulnessScreen() {
   const [activeTab, setActiveTab] = useState("mindfulness");
   const dotPosition = useRef(new Animated.Value(37)).current; // Start at mindfulness position
 
-  const animateAndNavigate = (
-    tab: string,
-    toPosition: number,
-    route: string
-  ) => {
+  const animateAndNavigate = (tab: Tab, toPosition: number, route: string) => {
     setActiveTab(tab);
 
-    // Animate the dot
     Animated.timing(dotPosition, {
+      // or dotPosition - match your variable name
       toValue: toPosition,
       duration: 300,
       useNativeDriver: false,
     }).start(() => {
-      // Navigate after animation completes
-      router.push(route);
+      router.replace(route); // Navigate AFTER animation completes
     });
   };
 

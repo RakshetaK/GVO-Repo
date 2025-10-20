@@ -32,12 +32,13 @@ export default function SettingsScreen() {
     setActiveTab(tab);
 
     Animated.timing(dotLeft, {
+      // or dotPosition - match your variable name
       toValue: toPosition,
       duration: 300,
       useNativeDriver: false,
-    }).start();
-
-    router.push(route);
+    }).start(() => {
+      router.replace(route); // Navigate AFTER animation completes
+    });
   };
 
   // Settings state

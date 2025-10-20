@@ -33,17 +33,13 @@ export default function VisualScreen() {
   const animateAndNavigate = (tab: Tab, toPosition: number, route: string) => {
     setActiveTab(tab);
 
-    // Animate the dot
     Animated.timing(dotLeft, {
+      // or dotPosition - match your variable name
       toValue: toPosition,
       duration: 300,
       useNativeDriver: false,
     }).start(() => {
-      // Navigate after animation completes with no transition
-      router.push({
-        pathname: route,
-        params: { animation: "none" },
-      });
+      router.replace(route); // Navigate AFTER animation completes
     });
   };
 

@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { Asset } from "expo-asset";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,6 +36,17 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    Asset.loadAsync([
+      require("../assets/mindfulness-icon.png"),
+      require("../assets/audio-icon.png"),
+      require("../assets/visual-icon.png"),
+      require("../assets/setting-icon.png"),
+      require("../assets/profile.png"),
+      require("../assets/brightness-icon.png"),
+    ]);
+  }, []);
+
+  useEffect(() => {
     if (loaded || error) SplashScreen.hideAsync();
   }, [loaded, error]);
 
@@ -44,8 +56,7 @@ export default function RootLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "slide_from_right",
-        animationDuration: 300,
+        animation: "none",
       }}
     />
   );

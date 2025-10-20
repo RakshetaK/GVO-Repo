@@ -107,24 +107,18 @@ export default function AudioScreen() {
     }
   };
 
-  const animateAndNavigate = (
-    tab: string,
-    toPosition: number,
-    route: string
-  ) => {
+  const animateAndNavigate = (tab: Tab, toPosition: number, route: string) => {
     setActiveTab(tab);
 
-    // Animate the dot
     Animated.timing(dotPosition, {
+      // or dotPosition - match your variable name
       toValue: toPosition,
       duration: 300,
       useNativeDriver: false,
     }).start(() => {
-      // Navigate after animation completes
-      router.push(route);
+      router.replace(route); // Navigate AFTER animation completes
     });
   };
-
   const togglePlayPause = (soundId: string) => {
     setPlayingStates((prev) => ({
       ...prev,
