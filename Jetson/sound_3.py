@@ -1,379 +1,267 @@
-#!/usr/bin/env python3
 import numpy as np
 from scipy import signal
 import sounddevice as sd
-import serial
 import sys
-import threading
-import queue
-import time
 
-SYNC_B1, SYNC_B2 = 0xAA, 0x55
-
-class ArduinoMicCompressor:
-    def __init__(self, serial_port='/dev/ttyACM0', baud_rate=115200):
-        self.serial_port = serial_port
-        self.baud_rate = baud_rate
-
-        # Will be auto-calibrated before audio starts
-        self.SAMPLE_RATE = 8000       # fallback; overwritten in calibrate
-        self.CHUNK = 512              # audio block size
-
-        # ---------- User settings ----------
-        # Compression
-        self.threshold_db = -20
-        self.ratio = 4
-        self.makeup_gain_db = 0
-
-        # Volume limiting
-        self.target_peak = 0.7
-
-        # Band limits (guarded against Nyquist)
-        self.lowcut = 200
-        self.highcut = 3000
-
-        # Comfort/dither noise (0.01–0.03 is subtle; 0.08 is obvious)
-        self.white_noise_level = 0.02
-        # -----------------------------------
-
+class LiveMicCompressor:
+    def __init__(self):
+        # Audio stream settings
+        self.CHUNK = 2048       # Samples per chunk (larger for Pi stability)
+        self.SAMPLE_RATE = 22050  # Sample rate in Hz (lower for Pi performance)
+        # For Raspberry Pi: Use 22050 or 32000 if CPU struggles
+        # For Laptop: Can use 44100 for better quality
+        
+        # ========== ADJUSTABLE SETTINGS ==========
+        
+        # COMPRESSION - Controls dynamic range (loud vs quiet sounds)
+        self.threshold_db = -20  # Start compressing above this (-30 to -10)
+        self.ratio = 4           # How much to compress (1 = off, 4 = moderate, 10 = heavy)
+        self.makeup_gain_db = 0  # Boost overall volume after compression (-10 to +10)
+        
+        # VOLUME LIMITING - Maximum output level
+        self.target_peak = 0.7   # Max volume (0.5 = quiet, 0.9 = loud)
+        
+        # FREQUENCY FILTERING - What frequencies to allow through
+        self.lowcut = 200        # Remove bass below this Hz (100-500)
+        self.highcut = 6000      # Remove treble above this Hz (4000-10000)
+        
+        # WHITE NOISE - Background soothing sound
+        self.white_noise_level = 0.08  # Volume of white noise (0.0 to 0.2)
+        
+        # ========================================
+        
         # Internal state
         self.filter_b = None
         self.filter_a = None
         self.zi = None
-        self.ser = None
-        self.audio_buffer = queue.Queue(maxsize=100)
-        self.is_running = False
-
-        # Reader accumulators
-        self._accum = []
-        self._aligned = False  # stream alignment (after seeing sync)
-        self._bytebuf = bytearray()
-
-    # ---------- Serial ----------
-    def connect_arduino(self):
-        try:
-            self.ser = serial.Serial(self.serial_port, self.baud_rate, timeout=1)
-            print(f"✓ Connected to Arduino on {self.serial_port}")
-            time.sleep(2)  # wait for Arduino reset
-            self.ser.reset_input_buffer()
-            return True
-        except serial.SerialException as e:
-            print(f"✗ Serial error: {e}")
-            print("Try: /dev/ttyACM0 or /dev/ttyUSB0, add your user to 'dialout', or use sudo.")
-            return False
-
-    def _append_to_queue(self, sample_float):
-        self._accum.append(sample_float)
-        if len(self._accum) >= self.CHUNK:
-            chunk = np.asarray(self._accum[:self.CHUNK], dtype=np.float32)
-            self._accum = self._accum[self.CHUNK:]
-            try:
-                self.audio_buffer.put_nowait(chunk)
-            except queue.Full:
-                # Drop oldest and push new
-                try:
-                    self.audio_buffer.get_nowait()
-                except queue.Empty:
-                    pass
-                try:
-                    self.audio_buffer.put_nowait(chunk)
-                except queue.Full:
-                    pass
-
-    def _consume_sync(self):
-        """
-        Scan self._bytebuf to align on sync boundary (0xAA 0x55).
-        After alignment, drop the sync bytes and set self._aligned = True.
-        """
-        buf = self._bytebuf
-        i = 0
-        found = False
-        while i + 1 < len(buf):
-            if buf[i] == SYNC_B1 and buf[i+1] == SYNC_B2:
-                # discard up to and including the sync word
-                del buf[:i+2]
-                found = True
-                break
-            i += 1
-        if found:
-            self._aligned = True
-            return True
-        return False
-
-    def _next_sample_from_buf(self):
-        """
-        Returns (sample_value:int or None). Handles sync words inline.
-        Assumes we are aligned. Keeps alignment if extra syncs appear.
-        """
-        buf = self._bytebuf
-        # ensure at least 2 bytes available
-        while len(buf) >= 2:
-            # if next two bytes are sync, drop them and continue
-            if buf[0] == SYNC_B1 and buf[1] == SYNC_B2:
-                del buf[:2]
-                continue
-            # otherwise read a 16-bit little-endian sample
-            value = int.from_bytes(buf[:2], 'little', signed=False)
-            del buf[:2]
-            return value
-        return None
-
-    def read_arduino_samples(self):
-        print("Starting Arduino reader thread…")
-        sample_count, last_report = 0, time.time()
-
-        while self.is_running:
-            try:
-                b = self.ser.read(512)
-                if b:
-                    self._bytebuf.extend(b)
-
-                # align if not aligned yet
-                if not self._aligned:
-                    if not self._consume_sync():
-                        # try to keep buffer bounded while searching
-                        if len(self._bytebuf) > 4096:
-                            del self._bytebuf[:2048]
-                        continue
-
-                # consume samples
-                while True:
-                    value = self._next_sample_from_buf()
-                    if value is None:
-                        break
-
-                    # Map 0..1023 → approx [-1.0, +1.0)
-                    normalized = (value / 512.0) - 1.0
-                    self._append_to_queue(normalized)
-
-                    sample_count += 1
-                    now = time.time()
-                    if now - last_report >= 1.0:
-                        print(f"  Samples/sec ~ {sample_count:5d} | Queue {self.audio_buffer.qsize():3d} | Last {value:4d}")
-                        sample_count = 0
-                        last_report = now
-
-            except Exception as e:
-                print(f"Reader error: {e}")
-                break
-
-        print("Arduino reader thread stopped")
-
-    def calibrate_sample_rate(self, seconds=1.5):
-        """
-        Estimate source sample rate before we open the audio stream.
-        Ignores sync words while counting.
-        """
-        print("\nCalibrating incoming sample rate…")
-        self.ser.reset_input_buffer()
-        start = time.time()
-        count = 0
-        buf = bytearray()
-
-        while time.time() - start < seconds:
-            b = self.ser.read(512)
-            if not b:
-                continue
-            buf.extend(b)
-            # strip sync pairs and count samples
-            while len(buf) >= 2:
-                if buf[0] == SYNC_B1 and buf[1] == SYNC_B2:
-                    del buf[:2]
-                    continue
-                # consume one sample
-                del buf[:2]
-                count += 1
-
-        elapsed = time.time() - start
-        rate = int(round(count / elapsed)) if elapsed > 0 else 8000
-        # keep within sane bounds
-        rate = max(3000, min(12000, rate))
-        print(f"  Estimated Arduino rate: ~{rate} Hz over {elapsed:.2f}s")
-        self.SAMPLE_RATE = rate
-
-    # ---------- DSP ----------
+        
     def setup_filter(self):
-        nyq = self.SAMPLE_RATE / 2.0
-        low = max(1.0, self.lowcut) / nyq
-        high_hz = min(self.highcut, 0.45 * self.SAMPLE_RATE)  # clamp safely below Nyquist
-        high = high_hz / nyq
+        """Pre-calculate filter coefficients"""
+        nyquist = self.SAMPLE_RATE / 2
+        low = self.lowcut / nyquist
+        high = self.highcut / nyquist
+        
         self.filter_b, self.filter_a = signal.butter(4, [low, high], btype='band')
-        # start from zero state
-        self.zi = signal.lfilter_zi(self.filter_b, self.filter_a) * 0.0
-
+        self.zi = signal.lfilter_zi(self.filter_b, self.filter_a) * 0
+        
     def bandpass_filter_chunk(self, data):
+        """Apply bandpass filter to a chunk"""
         filtered, self.zi = signal.lfilter(self.filter_b, self.filter_a, data, zi=self.zi)
         return filtered
-
+    
     def compress_chunk(self, data):
-        threshold = 10 ** (self.threshold_db / 20.0)
-        compressed = data.copy()
-        # elementwise soft-knee-ish static curve
-        amps = np.abs(compressed)
-        over = amps > threshold
-        if np.any(over):
-            over_db = 20.0 * np.log10(amps[over] / threshold)
-            comp_over_db = over_db / self.ratio
-            comp_amp = threshold * (10.0 ** (comp_over_db / 20.0))
-            compressed[over] = np.sign(compressed[over]) * comp_amp
-
+        """Apply dynamic range compression to a chunk"""
+        threshold = 10 ** (self.threshold_db / 20)
+        compressed = np.copy(data)
+        
+        for i in range(len(data)):
+            amplitude = np.abs(data[i])
+            
+            if amplitude > threshold:
+                over_db = 20 * np.log10(amplitude / threshold)
+                compressed_over_db = over_db / self.ratio
+                compressed_amplitude = threshold * (10 ** (compressed_over_db / 20))
+                compressed[i] = np.sign(data[i]) * compressed_amplitude
+        
         if self.makeup_gain_db != 0:
-            makeup = 10 ** (self.makeup_gain_db / 20.0)
-            compressed *= makeup
+            makeup_gain = 10 ** (self.makeup_gain_db / 20)
+            compressed *= makeup_gain
+            
         return compressed
-
+    
     def normalize_chunk(self, data):
-        peak = np.max(np.abs(data))
-        if peak > self.target_peak:
-            data = data * (self.target_peak / peak)
+        """Soft normalization to prevent clipping"""
+        current_peak = np.abs(data).max()
+        if current_peak > self.target_peak:
+            data = data * (self.target_peak / current_peak)
         return data
-
+    
     def add_white_noise_chunk(self, data):
-        if self.white_noise_level <= 0:
-            return data
-        noise = np.random.normal(0.0, self.white_noise_level, size=data.shape).astype(np.float32)
-        mixed = data + noise
-        peak = np.max(np.abs(mixed))
-        if peak > 1.0:
-            mixed /= peak
+        """Add white noise to chunk"""
+        white_noise = np.random.normal(0, self.white_noise_level, len(data))
+        mixed = data + white_noise
+        
+        # Prevent clipping
+        max_val = np.abs(mixed).max()
+        if max_val > 1.0:
+            mixed = mixed / max_val
+            
         return mixed
-
+    
     def process_chunk(self, chunk):
-        x = self.bandpass_filter_chunk(chunk)
-        x = self.compress_chunk(x)
-        x = self.normalize_chunk(x)
-        x = self.add_white_noise_chunk(x)
-        return x
-
-    # ---------- Audio ----------
-    def audio_callback(self, outdata, frames, time_info, status):
+        """Process a single chunk through the pipeline"""
+        # Convert to 1D if needed
+        if len(chunk.shape) > 1:
+            chunk = chunk[:, 0]  # Take first channel if stereo
+        
+        # 1. Frequency filter
+        filtered = self.bandpass_filter_chunk(chunk)
+        
+        # 2. Compress
+        compressed = self.compress_chunk(filtered)
+        
+        # 3. Normalize
+        normalized = self.normalize_chunk(compressed)
+        
+        # 4. Add white noise
+        final = self.add_white_noise_chunk(normalized)
+        
+        return final
+    
+    def audio_callback(self, indata, outdata, frames, time_info, status):
+        """Callback function for sounddevice duplex stream"""
         if status:
             print(f"Status: {status}")
-
+        
         try:
-            chunk = self.audio_buffer.get_nowait()
-        except queue.Empty:
+            # Process incoming audio
+            processed = self.process_chunk(indata[:, 0])
+            
+            # Output processed audio
+            outdata[:, 0] = processed
+            
+        except Exception as e:
+            print(f"Error in callback: {e}")
             outdata.fill(0)
-            return
-
-        # Single-pass processing here (no double-processing anywhere else)
-        processed = self.process_chunk(chunk)
-
-        n = min(len(processed), len(outdata))
-        outdata[:n, 0] = processed[:n]
-        if n < len(outdata):
-            outdata[n:, 0] = 0.0
-
-    def start_live_processing(self, output_device=None):
+    
+    def start_live_processing(self, input_device=None, output_device=None):
+        """Start live microphone processing"""
+        
+        # Set devices if specified
+        if input_device is not None or output_device is not None:
+            sd.default.device = (input_device, output_device)
+        
+        # Get the actual devices we'll use
+        input_dev_info = sd.query_devices(sd.default.device[0])
+        output_dev_info = sd.query_devices(sd.default.device[1])
+        
+        # Use the device's native sample rate
+        device_sample_rate = int(input_dev_info['default_samplerate'])
+        
+        # Update our sample rate to match the device
+        if device_sample_rate != self.SAMPLE_RATE:
+            print(f"\n⚠ Adjusting sample rate from {self.SAMPLE_RATE} to {device_sample_rate} Hz (device native rate)")
+            self.SAMPLE_RATE = device_sample_rate
+        
         print("\n" + "="*60)
-        print("ARDUINO MICROPHONE COMPRESSOR")
+        print("LIVE MICROPHONE COMPRESSOR")
         print("="*60)
-
-        if not self.connect_arduino():
-            return
-
-        # One-time rate calibration
-        self.calibrate_sample_rate(seconds=1.5)
-
-        # Show settings
-        print(f"\nSample Rate (playback): {self.SAMPLE_RATE} Hz")
-        print(f"Chunk Size: {self.CHUNK}")
-        print("\n" + "="*60)
-        print("CURRENT SETTINGS")
+        print(f"Sample Rate: {self.SAMPLE_RATE} Hz")
+        print(f"Chunk Size: {self.CHUNK} samples")
+        print(f"Latency: ~{(self.CHUNK / self.SAMPLE_RATE) * 1000:.1f} ms")
+        
+        print(f"\n" + "="*60)
+        print("CURRENT SETTINGS:")
         print("="*60)
-        print(f"  Compression: threshold {self.threshold_db} dB, ratio {self.ratio}:1")
-        print(f"  Bandpass: {self.lowcut}–{min(self.highcut, int(0.45*self.SAMPLE_RATE))} Hz")
-        print(f"  Output: target_peak {self.target_peak}, white_noise {self.white_noise_level}")
+        print(f"  Compression:")
+        print(f"    - Threshold: {self.threshold_db} dB")
+        print(f"    - Ratio: {self.ratio}:1")
+        print(f"    - Makeup Gain: {self.makeup_gain_db} dB")
+        print(f"  Frequency Filter:")
+        print(f"    - Low Cut: {self.lowcut} Hz")
+        print(f"    - High Cut: {self.highcut} Hz")
+        print(f"  Output:")
+        print(f"    - Max Volume: {self.target_peak}")
+        print(f"    - White Noise: {self.white_noise_level * 100:.1f}%")
         print("="*60)
-
-        # Filter after we know the calibrated rate
+        
+        # Setup filter with correct sample rate
         self.setup_filter()
-
-        # Output device select (optional)
-        if output_device is not None:
-            sd.default.device = (None, output_device)
-
-        # Friendly device print (guarded)
+        
+        print(f"\nUsing devices:")
+        print(f"  Input: {input_dev_info['name']}")
+        print(f"  Output: {output_dev_info['name']}")
+        
+        print("\n🎤 Starting LIVE audio processing...")
+        print("Press Ctrl+C to stop\n")
+        
         try:
-            dev = sd.default.device
-            out_idx = dev[1] if isinstance(dev, (list, tuple)) else dev
-            name = sd.query_devices(out_idx)['name']
-            print(f"\nUsing output device: {name}")
-        except Exception:
-            print("\nUsing default output device")
-
-        # Start the reader
-        self.is_running = True
-        t = threading.Thread(target=self.read_arduino_samples, daemon=True)
-        t.start()
-
-        print("\n🎤 Starting live audio…  (Ctrl+C to stop)\n")
-
-        try:
-            with sd.OutputStream(
+            # Open duplex stream (input and output simultaneously)
+            with sd.Stream(
                 samplerate=self.SAMPLE_RATE,
                 channels=1,
                 callback=self.audio_callback,
                 blocksize=self.CHUNK,
                 dtype='float32'
             ):
-                # Let the callback pull from the queue; keep main thread alive
-                while self.is_running:
-                    time.sleep(0.05)
+                print("✓ Processing active - speak into your microphone!")
+                print("  (You should hear yourself with processing applied)\n")
+                
+                # Keep running until interrupted
+                while True:
+                    sd.sleep(1000)
+                    
         except KeyboardInterrupt:
-            print("\n✓ Stopped by user")
+            print("\n\n✓ Stopped by user")
         except Exception as e:
-            print(f"\nAudio error: {e}")
-        finally:
-            self.is_running = False
-            try:
-                if self.ser:
-                    self.ser.close()
-            except:
-                pass
+            print(f"\n\nError: {e}")
+            print("\nTroubleshooting:")
+            print("  1. Run with --devices to see available devices")
+            print("  2. Make sure no other app is using your microphone")
+            print("  3. Check your system audio permissions")
 
-
-def list_serial_ports():
-    import serial.tools.list_ports
+def list_audio_devices():
+    """List available audio devices"""
     print("\n" + "="*60)
-    print("AVAILABLE SERIAL PORTS")
+    print("AVAILABLE AUDIO DEVICES")
     print("="*60)
-    ports = list(serial.tools.list_ports.comports())
-    if not ports:
-        print("No serial ports found.")
-    for p in ports:
-        print(f"\nPort: {p.device}\n  Description: {p.description}\n  HWID: {p.hwid}")
+    devices = sd.query_devices()
+    for i, device in enumerate(devices):
+        device_type = []
+        if device['max_input_channels'] > 0:
+            device_type.append('INPUT')
+        if device['max_output_channels'] > 0:
+            device_type.append('OUTPUT')
+        
+        print(f"\n[{i}] {device['name']}")
+        print(f"    Type: {', '.join(device_type)}")
+        print(f"    Channels: In={device['max_input_channels']}, Out={device['max_output_channels']}")
+        print(f"    Sample Rate: {device['default_samplerate']} Hz")
+    
     print("\n" + "="*60)
-
+    print("CURRENT DEFAULT DEVICES:")
+    print("="*60)
+    print(f"  Input: [{sd.default.device[0]}] {sd.query_devices(sd.default.device[0])['name']}")
+    print(f"  Output: [{sd.default.device[1]}] {sd.query_devices(sd.default.device[1])['name']}")
+    print("\nTo use specific devices, run with: --input <num> --output <num>")
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Arduino Microphone Audio Compressor")
-    parser.add_argument('--ports', action='store_true', help='List serial ports and exit')
-    parser.add_argument('--devices', action='store_true', help='List audio devices and exit')
-    parser.add_argument('--port', type=str, default='/dev/ttyACM0', help='Serial port (e.g., /dev/ttyACM0, /dev/ttyUSB0, COM3)')
-    parser.add_argument('--baud', type=int, default=115200, help='Baud rate')
-    parser.add_argument('--output', type=int, default=None, help='Output device index')
+    
+    parser = argparse.ArgumentParser(description='Live Microphone Audio Compressor')
+    parser.add_argument('--devices', action='store_true', help='List available audio devices')
+    parser.add_argument('--input', type=int, help='Input device number (see --devices)', default=None)
+    parser.add_argument('--output', type=int, help='Output device number (see --devices)', default=None)
+    
     args = parser.parse_args()
-
-    if args.ports:
-        list_serial_ports()
-        sys.exit(0)
-
+    
+    # Show available audio devices
     if args.devices:
-        print("\n" + "="*60)
-        print("AUDIO DEVICES")
-        print("="*60)
-        print(sd.query_devices())
+        list_audio_devices()
         sys.exit(0)
-
-    app = ArduinoMicCompressor(serial_port=args.port, baud_rate=args.baud)
-    # tweakables (override defaults here if you want)
-    app.threshold_db = -20
-    app.ratio = 4
-    app.lowcut = 200
-    app.highcut = 3000
-    app.white_noise_level = 0.02
-    app.target_peak = 0.7
-
-    app.start_live_process
+    
+    # Create compressor
+    compressor = LiveMicCompressor()
+    
+    # ========== ADJUST THESE SETTINGS ==========
+    
+    # COMPRESSION - Make loud sounds quieter
+    compressor.threshold_db = -20       # Lower = compress more sounds
+    compressor.ratio = 4                # Higher = more compression
+    compressor.makeup_gain_db = 0       # Increase to boost overall volume
+    
+    # FREQUENCY FILTERING - Remove annoying frequencies
+    compressor.lowcut = 200             # Higher = remove more bass
+    compressor.highcut = 6000           # Lower = remove more treble
+    
+    # OUTPUT LEVELS
+    compressor.target_peak = 0.7        # Higher = louder output
+    compressor.white_noise_level = 0.08 # Higher = more background noise
+    
+    # ===========================================
+    
+    # Start live processing
+    compressor.start_live_processing(
+        input_device=args.input,
+        output_device=args.output
+    )
