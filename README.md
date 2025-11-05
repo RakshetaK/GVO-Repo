@@ -34,10 +34,12 @@ All of this can be customized with a simple app and AI to ensure that the user h
 - Parents, caregivers, and venue staff who need a **fast, reliable** calming tool
 
 # Vyz Hardware
-<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-physical-wearable.JPG" width="300">
-<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-compute-box.JPG" width="300">
-<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/IMG_3413.JPG" width="300">
-
+<p float="left">
+<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-physical-wearable.JPG" width="250">
+<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/vyz-compute-box.JPG" width="250">
+<img src="https://github.com/RakshetaK/GVO-Repo/blob/main/Images/IMG_3413.jpg" width="350">
+</p>
+   
 ### Sunglasses
 Sunglasses are connected to a servo on the brim of the hat which is controlled by a camera connected to the RPi. The Rpi sends the signal over to an Arduino which performs the actual PWM to move the servo. When certain brightness is exceeded, the sunglasses come down to shield the user from harsh conditions. Additionally, the sunglasses can sense strobe lights to ensure that users can have a welcoming experience.
 
