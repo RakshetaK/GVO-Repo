@@ -1,6 +1,10 @@
-# VYZ — A Wearable That Calms Overwhelming Environments
+# VYZ — A Wearable That Calms Overwhelming Environments (Fall 2025 Good Vibes Only! Hackathon)
 
 A smart baseball cap that helps people stay comfortable in loud, high-stimulus places (arenas, concerts, busy streets) by **softening light**, **softening sound**, and **adding steady, calming cues**—all controlled by a simple phone app.
+
+## Edits
+We currently have this ported on to the Jetson Nano. This read me talks about the RPi version of this project. For more information on the Jetson Nano version, refer to this doc:
+https://docs.google.com/document/d/1ECA6VJYPtvybOeiOZTtpwBOocEHXtJOASXUGUJ1G4Ss/edit?tab=t.0
 
 ---
 
