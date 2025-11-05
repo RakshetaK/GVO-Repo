@@ -2,6 +2,11 @@ import numpy as np
 from scipy import signal
 import sounddevice as sd
 import sys
+import threading, time
+from server import app, settings
+
+def run_web_server():
+    app.run(host="0.0.0.0", port=5000, debug=False)
 
 class LiveMicCompressor:
     def __init__(self):
@@ -227,7 +232,9 @@ def list_audio_devices():
 
 if __name__ == "__main__":
     import argparse
-    
+
+    threading.Thread(target=run_web_server, daemon=True).start()
+
     parser = argparse.ArgumentParser(description='Live Microphone Audio Compressor')
     parser.add_argument('--devices', action='store_true', help='List available audio devices')
     parser.add_argument('--input', type=int, help='Input device number (see --devices)', default=None)
